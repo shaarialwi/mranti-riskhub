@@ -1,0 +1,82 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function member() {
+      return request.auth != null
+        && request.auth.token.email_verified == true
+        && request.auth.token.email is string
+        && request.auth.token.email.matches('.*@mranti[.]my$');
+    }
+    function reviewer() {
+      return member()
+        && exists(/databases/$(database)/documents/roles/$(request.auth.uid))
+        && get(/databases/$(database)/documents/roles/$(request.auth.uid)).data.role == 'reviewer';
+    }
+    function owner() { return member() && resource.data.ownerUid == request.auth.uid; }
+    function changed() { return request.resource.data.diff(resource.data).affectedKeys(); }
+    function validRisk(d) {
+      return d.keys().hasAll(['id', 'title', 'division', 'department', 'category', 'ownerUid', 'ownerEmail', 'status', 'actions',
+        'inherentLikelihood', 'inherentImpact', 'residualLikelihood', 'residualImpact'])
+        && d.keys().hasOnly(['id','title','category','division','department','ownerName','ownerEmail','ownerUid',
+         'description','rootCause','consequences','existingControls','controlEffectiveness','response',
+         'inherentLikelihood','inherentImpact','residualLikelihood','residualImpact','status','actions',
+         'createdAt','updatedAt','reviewComment','reviewBy','reviewedAt','history'])
+        && d.title is string && d.title.size() <= 300
+        && d.division is string && d.department is string
+        && d.actions is list && d.actions.size() <= 30
+        && d.inherentLikelihood is int && d.inherentLikelihood >= 1 && d.inherentLikelihood <= 5
+        && d.inherentImpact is int && d.inherentImpact >= 1 && d.inherentImpact <= 5
+        && d.residualLikelihood is int && d.residualLikelihood >= 1 && d.residualLikelihood <= 5
+        && d.residualImpact is int && d.residualImpact >= 1 && d.residualImpact <= 5;
+    }
+    match /roles/{userId} {
+      allow get: if member() && (request.auth.uid == userId || reviewer());
+      allow list, create, update, delete: if false; // Assign roles using Firebase Admin SDK / console ONLY.
+    }
+    match /risks/{riskId} {
+      allow get, list: if member() && (reviewer() || resource.data.ownerUid == request.auth.uid);
+      allow create: if member() && validRisk(request.resource.data)
+        && request.resource.data.id == riskId
+        && request.resource.data.ownerUid == request.auth.uid
+        && request.resource.data.ownerEmail == request.auth.token.email
+        && request.resource.data.status in ['Draft','Submitted'];
+      allow update: if member() && validRisk(request.resource.data) && (
+        // Risk owner: may only edit a draft / returned risk, then submit it.
+        (owner() && resource.data.status in ['Draft','Returned']
+          && request.resource.data.status in ['Draft','Submitted']
+          && changed().hasOnly(['title','category','division','department','ownerName','description',
+           'rootCause','consequences','existingControls','controlEffectiveness','response',
+           'inherentLikelihood','inherentImpact','residualLikelihood','residualImpact',
+           'actions','status','updatedAt','history']))
+        ||
+        // Independent Risk Team validation; reviewer cannot approve their own risk.
+        (reviewer() && resource.data.ownerUid != request.auth.uid
+          && resource.data.status in ['Submitted','Under Review']
+          && request.resource.data.status in ['Under Review','Returned','Approved']
+          && (request.resource.data.status != 'Returned' || request.resource.data.reviewComment.size() > 0)
+          && request.resource.data.reviewBy == request.auth.token.name
+          && changed().hasOnly(['status','reviewComment','reviewBy','reviewedAt','updatedAt','history',
+            'inherentLikelihood','inherentImpact','residualLikelihood','residualImpact']))
+        ||
+        // Owner may update action progress after approval. For strict immutable approved plans,
+        // migrate actions to subdocuments or use a server-side workflow function.
+        (owner() && resource.data.status in ['Approved','Monitoring']
+          && request.resource.data.status == 'Monitoring'
+          && changed().hasOnly(['actions','status','updatedAt','history']))
+        ||
+        // Reviewer finalises closure. The web client checks task completion; server-side
+        // revalidation of per-action completion is required for regulated production use.
+        (reviewer() && resource.data.ownerUid != request.auth.uid
+          && resource.data.status in ['Approved','Monitoring']
+          && request.resource.data.status == 'Closed'
+          && request.resource.data.reviewBy == request.auth.token.name
+          && changed().hasOnly(['status','reviewBy','reviewedAt','updatedAt','history']))
+      );
+      allow delete: if false;
+    }
+    match /audit_events/{id} {
+      allow get, list: if reviewer();
+      allow create, update, delete: if false;
+    }
+  }
+}

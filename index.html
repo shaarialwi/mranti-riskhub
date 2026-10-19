@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#091c41" />
+  <meta name="description" content="MRANTI RiskHub — enterprise risk register, approvals and action-plan monitoring." />
+  <title>MRANTI RiskHub — Enterprise Risk Management</title>
+  <link rel="icon" href="./assets/favicon.svg" type="image/svg+xml" />
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <div id="app">
+    <aside class="sidebar" aria-label="Primary navigation">
+      <div class="brand"><div class="brand-emblem" aria-hidden="true">M</div><div><div class="brand-title">MRANTI<span>RiskHub</span></div><div class="brand-caption">ENTERPRISE RISK MANAGEMENT</div></div></div>
+      <div class="sidebar-separator"></div>
+      <p class="sidebar-caption">WORKSPACE</p>
+      <nav id="nav" class="navigation"></nav>
+      <div class="sidebar-bottom">
+        <div class="side-note"><span class="side-pulse"></span><div><strong>Risk governance</strong><span>ISO 31000-aligned workflow</span></div></div>
+        <div class="side-footer">MRANTI CORPORATION SDN BHD<br />Risk Management Platform · v1.0</div>
+      </div>
+    </aside>
+    <div class="main-shell">
+      <header class="topbar">
+        <button class="mobile-menu" id="mobileMenu" aria-label="Toggle navigation">☰</button>
+        <div class="breadcrumb">MRANTI / <span id="breadcrumb">Overview</span></div>
+        <div class="header-right"><span id="modePill" class="mode-pill">DEMO MODE</span><div class="header-profile"><div id="avatar" class="avatar">DS</div><div class="profile-copy"><strong id="profileName">Demo Staff</strong><span id="profileRole">Risk Owner</span></div></div></div>
+      </header>
+      <main id="content" tabindex="-1" aria-live="polite"></main>
+      <footer class="footer">Risk methodology adapted from MRANTI Risk Assessment Guide (Q3 2026). <span id="footerMode">Demonstration data stored in this browser only.</span></footer>
+    </div>
+  </div>
+  <div class="toast-stack" id="toasts" aria-live="polite"></div>
+  <div id="drawerHost"></div>
+  <input type="file" id="csvUpload" accept=".csv,text/csv" hidden />
+  <script src="./firebase-config.js"></script>
+  <script type="module" src="./app.js"></script>
+</body>
+</html>
